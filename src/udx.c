@@ -764,6 +764,7 @@ _send_packet (udx_stream_t *stream, udx_packet_t *pkt, bool is_retransmit) {
   if (is_retransmit) pkt->retransmitted = true; // true if packet was _ever_ retransmitted
 
   pkt->time_sent = uv_now(stream->udx->loop);
+  pkt->time_sent_us = uv_hrtime() / 1000;
   udx__rate_pkt_sent(stream, pkt);
 
   if (pkt->lost) {
