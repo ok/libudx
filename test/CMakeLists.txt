@@ -43,6 +43,7 @@ list(APPEND tests
   stream-rack-tlp-example
   stream-ooo-shuffle
   stream-timewait
+  stream-bbr-window-budget
   stream-timewait-replace-by-new-stream-id
   stream-timewait-ooo-end
   stream-ooo-end-eof
