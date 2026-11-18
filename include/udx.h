@@ -377,6 +377,7 @@ struct udx_stream_s {
   struct {
     uint32_t min_rtt_ms;          // min RTT in past min_rtt_win (10 seconds). BBR.rtprop in IETF draft
     uint64_t min_rtt_stamp;       // timestamp min_rtt_ms sample was taken.    BBR.rtprop_stamp in IETF draft
+    uint32_t min_rtt_us;          // the same minimum in microseconds; sizes the window
     uint64_t probe_rtt_done_time; // end time for UDX_BBR_STATE_PROBE_RTT
     win_filter_f64_t bw;          // maximum recent delivery rate in packets/ms. BBR.BtlBwFilter in IETF draft.
     uint32_t rtt_count;           // count of packet-timed round trips. BBR.round_count in IETF draft
@@ -481,7 +482,7 @@ struct udx_packet_s {
   uint32_t remote_id;
 
   uint64_t time_sent;
-  uint64_t time_sent_us; // high-resolution send time, for the rate sample
+  uint64_t time_sent_us; // high-resolution send time, for the rate and round-trip samples
 
   uint64_t stream_offset; // bytes_packetized at time of packet
 

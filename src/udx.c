@@ -1478,6 +1478,7 @@ ack_packet (udx_stream_t *stream, uint32_t seq, int sack, udx_rate_sample_t *rs)
   if (!pkt->retransmitted || (rtt >= udx_rtt_min(stream))) {
     stream->rack_rtt = rtt;
     rs->rtt_ms = rtt;
+    rs->rtt_us = (int64_t) (uv_hrtime() / 1000 - pkt->time_sent_us);
 
     if (rack_sent_after(pkt->time_sent, next, stream->rack_time_sent, stream->rack_next_seq)) {
       stream->rack_time_sent = pkt->time_sent;
@@ -1860,7 +1861,7 @@ process_packet (udx_socket_t *socket, char *buf, ssize_t buf_len, struct sockadd
 
   bool ended = false;
 
-  udx_rate_sample_t rs = {.rtt_ms = -1};
+  udx_rate_sample_t rs = {.rtt_ms = -1, .rtt_us = -1};
 
   for (uint32_t p = prior_remote_acked; seq_compare(p, ack) < 0; p++) {
     int a = ack_packet(stream, p, 0, &rs);

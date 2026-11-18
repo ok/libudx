@@ -154,11 +154,11 @@ bbr_on_transmit_start (udx_stream_t *stream, uint64_t now_ms) {
 static uint32_t
 bbr_bdp (udx_stream_t *stream, double bw, double gain) {
 
-  if (stream->bbr.min_rtt_ms == ~0U) {
+  if (stream->bbr.min_rtt_us == ~0U) {
     return 10; // cap at initial cwnd
   }
 
-  return max_uint32(bw * stream->bbr.min_rtt_ms * gain, 1);
+  return max_uint32(bw * (stream->bbr.min_rtt_us / 1000.0) * gain, 1);
 }
 
 static uint32_t
@@ -469,9 +469,10 @@ bbr_update_min_rtt (udx_stream_t *stream, udx_rate_sample_t *rs) {
 
   filter_expired = time_diff(now, stream->bbr.min_rtt_stamp + UDX_BBR_MIN_RTT_INTERVAL_MS) > 0;
 
-  if (rs->rtt_ms >= 0 && (rs->rtt_ms < (int64_t) stream->bbr.min_rtt_ms || (filter_expired && !rs->is_ack_delayed))) {
-    // round up to 1ms, since our timer has 1ms resolution
-    stream->bbr.min_rtt_ms = rs->rtt_ms ? rs->rtt_ms : 1;
+  if (rs->rtt_us >= 0 && (rs->rtt_us < (int64_t) stream->bbr.min_rtt_us || (filter_expired && !rs->is_ack_delayed))) {
+    stream->bbr.min_rtt_us = rs->rtt_us ? rs->rtt_us : 1;
+    // the millisecond figure rounds up: it bounds a probing phase and is what callers read
+    stream->bbr.min_rtt_ms = (stream->bbr.min_rtt_us + 999) / 1000;
     stream->bbr.min_rtt_stamp = now;
   }
 
@@ -564,6 +565,7 @@ bbr_init (udx_stream_t *stream) {
   stream->bbr.probe_rtt_done_time = 0;
   stream->bbr.probe_rtt_round_done = 0;
   stream->bbr.min_rtt_ms = udx_rtt_min(stream);
+  stream->bbr.min_rtt_us = stream->bbr.min_rtt_ms == ~0U ? ~0U : stream->bbr.min_rtt_ms * 1000;
   stream->bbr.min_rtt_stamp = uv_now(stream->udx->loop);
 
   win_filter_f64_reset(&stream->bbr.bw, stream->bbr.rtt_count, 0);
