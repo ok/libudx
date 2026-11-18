@@ -36,6 +36,7 @@ list(APPEND tests
   stream-combined-write
   stream-keepalive
   stream-rto
+  stream-rate-sample-us
   stream-rto-sack-progress
   stream-retransmit-refreshes-header
   stream-strict-sack

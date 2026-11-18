@@ -13,13 +13,13 @@
   ((type *) ((char *) (ptr) - offsetof(type, member)))
 
 typedef struct {
-  uint64_t prior_timestamp;
+  uint64_t prior_timestamp; // microseconds
   uint32_t prior_delivered;
 
   int32_t delivered;
-  int64_t interval_ms;
-  uint32_t snd_interval_ms;
-  uint32_t rcv_interval_ms;
+  int64_t interval_us;
+  uint64_t snd_interval_us;
+  uint64_t rcv_interval_us;
   int64_t rtt_ms; // rs.rtt in IETF draft
   int losses;
   uint32_t acked_sacked;

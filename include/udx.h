@@ -349,10 +349,12 @@ struct udx_stream_s {
   uint32_t delivered;              // number of packets delivered, including retransmits
   uint32_t lost;                   // number of packets lost, including retransmits
   uint32_t app_limited;            // we are 'app limited' until delivered reaches this value
-  uint64_t first_sent_ts;          // start of window send interval
+  uint64_t first_sent_us;          // start of window send interval, high-resolution clock
   uint64_t delivered_ts;           // time we reached 'delivered'
+  uint64_t delivered_us;           // the same time on the high-resolution clock
   uint32_t rate_delivered;         // saved rate sample: packets delivered
   uint32_t rate_interval_ms;       // saved rate sample: time elapsed
+  uint64_t rate_interval_us;       // the same time elapsed in microseconds
   bool rate_sample_is_app_limited; // saved rate sample: app limited?
 
   udx_stream_timer_type_t pending_timer;
@@ -479,12 +481,13 @@ struct udx_packet_s {
   uint32_t remote_id;
 
   uint64_t time_sent;
+  uint64_t time_sent_us; // high-resolution send time, for the rate sample
 
   uint64_t stream_offset; // bytes_packetized at time of packet
 
   // rate sampling state
-  uint64_t first_sent_ts; // not the same as pkt->time_sent! this is the time sent of the most recently acked packet, used for the start interval of a rate sample
-  uint64_t delivered_ts;  // time stamp when the 'delivered' value was taken
+  uint64_t first_sent_us; // not the same as pkt->time_sent_us! this is the time sent of the most recently acked packet, used for the start interval of a rate sample
+  uint64_t delivered_us;  // time stamp when the 'delivered' value was taken
   uint32_t delivered;     // #pkts delivered when packet was transmitted
   bool is_app_limited;    // was throughput app-limited (vs network limited) at the time the packet was transmitted?
 

@@ -322,7 +322,7 @@ static void
 bbr_update_bw (udx_stream_t *stream, udx_rate_sample_t *rs) {
   stream->bbr.round_start = false;
 
-  if (rs->delivered < 0 || rs->interval_ms <= 0) {
+  if (rs->delivered < 0 || rs->interval_us <= 0) {
     return;
   }
 
@@ -335,11 +335,11 @@ bbr_update_bw (udx_stream_t *stream, udx_rate_sample_t *rs) {
   }
 
   // divide delivered / interval to find a bw sample (in packets/ms)
-  double bw = (double) rs->delivered / rs->interval_ms;
+  double bw = (double) rs->delivered * 1000 / rs->interval_us;
   assert(bw != 0);
 
   if (!rs->is_app_limited || bw >= bbr_max_bw(stream)) {
-    // debug_printf("bw=%lu (rs->delivered=%u / rs->interval_ms=%ld)\n", bw, rs->delivered, rs->interval_ms);
+    // debug_printf("bw=%lu (rs->delivered=%u / rs->interval_us=%ld)\n", bw, rs->delivered, rs->interval_us);
     win_filter_f64_apply_max(&stream->bbr.bw, UDX_BBR_CYCLE_LEN + 2, stream->bbr.rtt_count, bw);
   }
 }
@@ -348,7 +348,7 @@ bbr_update_bw (udx_stream_t *stream, udx_rate_sample_t *rs) {
 // unlike Linux TCP we always aggregate ACKs on the sender side in the current implementation
 static void
 bbr_update_ack_aggregation (udx_stream_t *stream, udx_rate_sample_t *rs) {
-  if (!bbr_extra_acked_gain || rs->acked_sacked <= 0 || rs->delivered < 0 || rs->interval_ms <= 0) {
+  if (!bbr_extra_acked_gain || rs->acked_sacked <= 0 || rs->delivered < 0 || rs->interval_us <= 0) {
     return;
   }
 
