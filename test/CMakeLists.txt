@@ -33,6 +33,7 @@ list(APPEND tests
   win-filter
   stream-bbr-state
   stream-bbr-recovery-loss
+  stream-bbr-min-rtt-us
   stream-combined-write
   stream-keepalive
   stream-rto
