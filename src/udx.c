@@ -38,6 +38,14 @@
 #define UDX_INIT_PACING_RATE    25000 // 25MB/s, 200mbit. updated by bbr_init
 #define UDX_DEFAULT_SNDBUF_SIZE 212992
 
+// a send quantum is one millisecond at the pacing rate, at least two packets, at most 64 KB.
+// one refill of the pacer releases at most two quanta (or one millisecond at the pacing rate,
+// if that is more), however late its timer ran. with nothing in flight it may release ten packets.
+#define UDX_PACING_QUANTUM_MIN_PACKETS 2
+#define UDX_PACING_QUANTUM_MAX_BYTES   65536
+#define UDX_PACING_REFILL_MAX_QUANTA   2
+#define UDX_PACING_IDLE_BURST_PACKETS  10
+
 #define UDX_MAX_RTO_TIMEOUTS 6
 
 #define UDX_RTO_MAX_MS        30000
@@ -1994,7 +2002,19 @@ update_pacing_time (udx_stream_t *stream) {
   if (now > stream->tb_last_refill_ms) {
     uint64_t factor = now - stream->tb_last_refill_ms;
     assert(stream->pacing_bytes_per_ms > 0);
-    stream->tb_available = factor * stream->pacing_bytes_per_ms;
+
+    uint64_t rate = stream->pacing_bytes_per_ms;
+    uint64_t mss = udx__max_payload(stream);
+
+    uint64_t quantum = rate < UDX_PACING_QUANTUM_MAX_BYTES ? rate : UDX_PACING_QUANTUM_MAX_BYTES;
+    if (quantum < UDX_PACING_QUANTUM_MIN_PACKETS * mss) quantum = UDX_PACING_QUANTUM_MIN_PACKETS * mss;
+
+    uint64_t limit = UDX_PACING_REFILL_MAX_QUANTA * quantum;
+    if (limit < rate) limit = rate;
+    if (stream->inflight_queue.len == 0 && limit < UDX_PACING_IDLE_BURST_PACKETS * mss) limit = UDX_PACING_IDLE_BURST_PACKETS * mss;
+
+    uint64_t available = factor * rate;
+    stream->tb_available = available < limit ? available : limit;
     stream->tb_last_refill_ms = now;
   }
 }

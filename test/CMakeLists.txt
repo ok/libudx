@@ -39,6 +39,7 @@ list(APPEND tests
   stream-rto-sack-progress
   stream-retransmit-refreshes-header
   stream-strict-sack
+  stream-pacing-late-timer
   stream-rack-tlp-example
   stream-ooo-shuffle
   stream-timewait
