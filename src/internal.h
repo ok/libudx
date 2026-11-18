@@ -21,6 +21,7 @@ typedef struct {
   uint32_t snd_interval_ms;
   uint32_t rcv_interval_ms;
   int64_t rtt_ms; // rs.rtt in IETF draft
+  int64_t rtt_us; // the same sample in microseconds, -1 if none
   int losses;
   uint32_t acked_sacked;
   uint32_t prior_in_flight;
