@@ -45,6 +45,10 @@ static double bbr_pacing_gain[] = {
 
 static const uint32_t bbr_cwnd_min_target = 4;
 
+static const uint32_t bbr_quantization_budget_quanta = 3;
+static const uint32_t bbr_send_quantum_min_packets = 2;
+static const uint32_t bbr_send_quantum_max_bytes = 65536;
+
 // bw increased to full bw probe, there may be more bw available
 static const double bbr_full_bw_thresh = 1.25;
 // if after 3 rounds w/o growth, estimate that the pipe is full
@@ -158,12 +162,42 @@ bbr_bdp (udx_stream_t *stream, double bw, double gain) {
     return 10; // cap at initial cwnd
   }
 
-  return max_uint32(bw * stream->bbr.min_rtt_ms * gain, 1);
+  // round up, so a small bdp does not shrink each round (Linux bbr_bdp)
+  double bdp = bw * stream->bbr.min_rtt_ms * gain;
+  uint32_t bdp_packets = bdp;
+  if (bdp_packets < bdp) bdp_packets++;
+
+  return max_uint32(bdp_packets, 1);
+}
+
+// a send quantum in packets: one millisecond at the pacing rate, at least two packets, at most 64 KB
+static uint32_t
+bbr_send_quantum (udx_stream_t *stream) {
+  uint32_t mss = udx__max_payload(stream);
+  uint32_t quantum = min_uint32(stream->pacing_bytes_per_ms / mss, bbr_send_quantum_max_bytes / mss);
+  return max_uint32(quantum, bbr_send_quantum_min_packets);
+}
+
+// sends, offloads and acks come in quanta, so the window keeps three of them in flight
+// on top of the bdp (Linux BBRv1 bbr_quantization_budget)
+static uint32_t
+bbr_quantization_budget (udx_stream_t *stream, uint32_t cwnd) {
+  cwnd += bbr_quantization_budget_quanta * bbr_send_quantum(stream);
+
+  // round up to an even window, so a receiver that acks every second packet is not left waiting
+  cwnd = (cwnd + 1) & ~1U;
+
+  // the probing phase gets inflight above the bdp even when the bdp is small
+  if (stream->bbr.state == UDX_BBR_STATE_PROBE_BW && stream->bbr.cycle_index == 0) {
+    cwnd += 2;
+  }
+
+  return cwnd;
 }
 
 static uint32_t
 bbr_inflight (udx_stream_t *stream, double bw, double gain) {
-  return bbr_bdp(stream, bw, gain);
+  return bbr_quantization_budget(stream, bbr_bdp(stream, bw, gain));
 }
 
 // Return the highest recently seen degree of ack aggregation. unit is packets.
@@ -233,6 +267,7 @@ bbr_set_cwnd (udx_stream_t *stream, udx_rate_sample_t *rs, uint32_t acked, doubl
   uint32_t target_cwnd = bbr_bdp(stream, bw, gain);
 
   target_cwnd += bbr_ack_aggregation_cwnd(stream);
+  target_cwnd = bbr_quantization_budget(stream, target_cwnd);
 
   if (bbr_full_bw_reached(stream)) {
     cwnd = min_uint32(cwnd + acked, target_cwnd);
