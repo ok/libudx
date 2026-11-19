@@ -11,11 +11,11 @@
 // loaded round trip of data, the delivery rate falls below bw, and the window shrinks with it
 // every round. the bdp is rounded up and three send quanta are added on top (Linux BBRv1
 // bbr_bdp and bbr_quantization_budget), so the target covers bw x (min_rtt + ack delay).
-// the stream is put into PROBE_BW with a fixed bw estimate and a 1 ms minimum, and the ack
+// the stream is put into PROBE_BW with a fixed bw estimate and a 1.4 ms minimum, and the ack
 // for the first packet is sent 4 ms late.
 
 #define BW_PACKETS_PER_MS 10.3
-#define MIN_RTT_MS        1
+#define MIN_RTT_US        1400
 #define ACK_DELAY_MS      4
 
 uv_loop_t loop;
@@ -63,16 +63,16 @@ on_check (uv_check_t *handle) {
   uint32_t mss = stream.mtu - UDX_IPV4_HEADER_SIZE;
   uint32_t quantum = stream.pacing_bytes_per_ms / mss;
 
-  double bdp = BW_PACKETS_PER_MS * MIN_RTT_MS * stream.bbr.cwnd_gain;
+  double bdp = BW_PACKETS_PER_MS * (MIN_RTT_US / 1000.0) * stream.bbr.cwnd_gain;
   uint32_t bdp_rounded_up = bdp;
   if (bdp_rounded_up < bdp) bdp_rounded_up++;
 
-  uint32_t loaded_rtt = BW_PACKETS_PER_MS * (MIN_RTT_MS + ACK_DELAY_MS) + 1;
+  uint32_t loaded_rtt = BW_PACKETS_PER_MS * (MIN_RTT_US / 1000.0 + ACK_DELAY_MS) + 1;
 
   printf("stream-bbr-window-budget: cwnd=%u bdp=%.2f quantum=%u loaded_rtt=%u state=%u\n", stream.cwnd, bdp, quantum, loaded_rtt, stream.bbr.state);
 
   assert(stream.bbr.state == UDX_BBR_STATE_PROBE_BW);
-  assert(stream.bbr.min_rtt_ms == MIN_RTT_MS);
+  assert(stream.bbr.min_rtt_us == MIN_RTT_US);
   assert(quantum >= 2);
 
   // the target is the bdp rounded up plus three quanta, and the budget is added, not multiplied
@@ -99,7 +99,8 @@ on_recv (udx_socket_t *handle, ssize_t read_len, const uv_buf_t *buf, const stru
   stream.bbr.pacing_gain = 1.0;
   stream.bbr.cwnd_gain = 2.0;
   stream.bbr.has_seen_rtt = true;
-  stream.bbr.min_rtt_ms = MIN_RTT_MS;
+  stream.bbr.min_rtt_us = MIN_RTT_US;
+  stream.bbr.min_rtt_ms = (MIN_RTT_US + 999) / 1000;
   win_filter_f64_reset(&stream.bbr.bw, stream.bbr.rtt_count, BW_PACKETS_PER_MS);
 
   // far above the target, so the ack sets the window to the target
